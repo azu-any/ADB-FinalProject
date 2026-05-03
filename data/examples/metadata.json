@@ -1,0 +1,52 @@
+{
+    "water_scarcity.txt": {
+        "title": "Global Water Scarcity and Management",
+        "author": "United Nations Water",
+        "date": "2023-03-22"
+    },
+    "solar_energy.txt": {
+        "title": "The Future of Solar Energy",
+        "author": "International Energy Agency",
+        "date": "2023-05-15"
+    },
+    "wind_turbines.txt": {
+        "title": "Wind Power and Environmental Impact",
+        "author": "Global Wind Energy Council",
+        "date": "2023-06-10"
+    },
+    "climate_change_impacts.txt": {
+        "title": "Impacts of Climate Change on Global Biodiversity",
+        "author": "IPCC",
+        "date": "2023-01-20"
+    },
+    "food_security.txt": {
+        "title": "Sustainable Agriculture and Food Security",
+        "author": "FAO",
+        "date": "2023-04-12"
+    },
+    "carbon_footprint.txt": {
+        "title": "Measuring and Reducing Carbon Footprints",
+        "author": "Carbon Trust",
+        "date": "2023-02-28"
+    },
+    "renewable_policy.txt": {
+        "title": "Policy Frameworks for Renewable Energy",
+        "author": "IRENA",
+        "date": "2023-07-05"
+    },
+    "ocean_conservation.txt": {
+        "title": "Marine Biodiversity and Ocean Health",
+        "author": "Ocean Conservancy",
+        "date": "2023-08-14"
+    },
+    "sustainable_cities.txt": {
+        "title": "Urban Planning for Sustainable Cities",
+        "author": "UN-Habitat",
+        "date": "2023-09-30"
+    },
+    "circular_economy.txt": {
+        "title": "Transitioning to a Circular Economy",
+        "author": "Ellen MacArthur Foundation",
+        "date": "2023-11-11"
+    }
+}
