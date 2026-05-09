@@ -53,3 +53,6 @@ This project implements a **Latent Semantic Indexing (LSI)** system to represent
 ## 🧠 Technical Details
 
 The system transforms the raw **Term-Document Frequency Matrix ($FrecT$)** into a lower-dimensional latent space using SVD ($A \approx U_k \Sigma_k V_k^T$). This allows the system to identify relationships between documents that share semantic themes even if they don't share exact keywords (handling synonyms and polysemies).
+
+
+cambio
