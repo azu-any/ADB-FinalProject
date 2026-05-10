@@ -22,5 +22,17 @@
         "author": "Netflix, Vox Media Studios, Vox",
         "date": "2020-04-17",
         "url": "data/documents/netflix-2020.txt"
-    }
+    },
+    "un-water-climate-change.txt": {
+        "title": "Water and Climate Change",
+        "author": "UN Water",
+        "date": "2025-05-10",
+        "url": "data/documents/un-water-climate-change.txt"
+    },
+    "unicef-water-climate.txt": {
+    "title": "Impact of Climate Change on Water Availability and Quality",
+    "author": "UNICEF",
+    "date": "2025-05-10",
+    "url": "data/documents/unicef-water-climate.txt"
+}
 }
