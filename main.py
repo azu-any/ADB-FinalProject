@@ -3,18 +3,34 @@ from config import DB_CONFIG
 from indexer import Indexer
 from lsi_engine import LSIEngine
 from query_engine import QueryEngine
+import psycopg2
+from dotenv import load_dotenv
 
 def run_demo():
     print("--- LSI Document Base System Demo ---")
     
     # 1. Initialize Indexer and DB
     indexer = Indexer(DB_CONFIG)
+
+    load_dotenv()
+
+    DATABASE_URL = os.getenv("DATABASE_URL")
+
     print("\n[1/4] Initializing Database and Indexing Documents...")
     try:
-        indexer.initialize_db('schema.sql')
-        indexer.index_documents('data/documents', metadata_file='data/metadata.json')
+        # Aqui se abre supabase
+        connection = psycopg2.connect(DATABASE_URL)
+        cursor = connection.cursor()
+
+        # Ejemplo de como funciona
+        # cursor.execute("INSERT INTO document DEFAULT VALUES;")
+        # connection.commit()
+
+        cursor.close()
+        connection.close()
+
     except Exception as e:
-        print(f"Error during indexing: {e}")
+        print(f"Error: {e}")
         print("Please ensure MySQL is running and DB_CONFIG is correct.")
         return
 
