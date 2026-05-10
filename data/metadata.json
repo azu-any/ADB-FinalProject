@@ -34,5 +34,17 @@
     "author": "UNICEF",
     "date": "2025-05-10",
     "url": "data/documents/unicef-water-climate.txt"
-}
+    },
+    "saberifar-2022": {
+        "title": "Climate Change and Water Crisis (Case Study, Mashhad in Northeastern Iran)",
+        "author": "Rostam Saberifar",
+        "date": "2022-07-08",
+        "url": "data/documents/saberifar-2022.txt"
+    },
+    "wang-2022": {
+        "title": "Climate Change and Water Crisis (Case Study, Mashhad in Northeastern Iran)",
+        "author": "Xuanxuan Wang, Yaning Chen, Gonghuan Fang, Zhi Li, Yongchang Liu",
+        "date": "2022-10-03",
+        "url": "data/documents/wang-2022.txt"
+    }
 }
