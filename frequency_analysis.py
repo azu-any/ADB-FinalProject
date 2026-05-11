@@ -1,72 +1,102 @@
 import os
-from collections import Counter
-import matplotlib.pyplot as plt
 import pandas as pd
 from preprocessing import TextPreprocessor
+from collections import Counter
 
 
 class FrequencyAnalyzer:
     def __init__(self):
         self.preprocessor = TextPreprocessor()
 
-    def analyze_all_documents(self, docs_dir="data/documents", output_dir="results"):
+    def run(self, docs_dir="data/documents", output_dir="results"):
         os.makedirs(output_dir, exist_ok=True)
 
-        print("🔄 Procesando documentos...\n")
-        all_freqs = {}
-
         doc_files = [f for f in os.listdir(docs_dir) if f.endswith('.txt')]
+        all_freqs = {}
+        doc_id_map = {}
 
-        for filename in sorted(doc_files):
-            doc_path = os.path.join(docs_dir, filename)
-            with open(doc_path, 'r', encoding='utf-8') as f:
+        print("🔄 Procesando documentos...\n")
+        for i, filename in enumerate(sorted(doc_files), 1):
+            with open(os.path.join(docs_dir, filename), 'r', encoding='utf-8') as f:
                 text = f.read()
-
             tokens = self.preprocessor.preprocess(text)
             all_freqs[filename] = Counter(tokens)
-            print(f"✅ {filename}: {len(tokens)} tokens")
+            doc_id_map[filename] = i
+            print(f"✅ {filename} → {len(tokens)} tokens")
 
-        # Generar archivos
-        self.create_term_document_matrix(all_freqs, output_dir)
+        # 1. Tabla Global Ancha (como la del profesor)
+        self.create_global_wide_matrix(all_freqs, output_dir)
+
+        # 2. Tabla Global Larga ordenada por término
+        self.create_global_long_table(all_freqs, doc_id_map, output_dir)
+
+        # 3. Tablas individuales por documento con TODOS los términos
+        self.create_per_document_full_tables(all_freqs, output_dir)
+
+        # 4. Gráficas Luhn
         self.generate_luhn_graphs(all_freqs, output_dir)
 
-        print(f"\n🎉 ¡Listo! Revisa la carpeta: **{output_dir}**")
+        print(f"\n🎉 ¡Todo generado correctamente en carpeta 'results'!")
 
-    def create_term_document_matrix(self, all_freqs, output_dir):
-        all_terms = set()
-        for freq in all_freqs.values():
-            all_terms.update(freq.keys())
-
-        terms = sorted(list(all_terms))
+    def create_global_wide_matrix(self, all_freqs, output_dir):
+        all_terms = sorted(set(term for freq in all_freqs.values() for term in freq.keys()))
         docs = sorted(all_freqs.keys())
-        doc_names = [d.replace('.txt', '')[:15] for d in docs]
+        doc_names = [d.replace('.txt', '')[:12] for d in docs]
 
         data = []
-        for term in terms:
+        for term in all_terms:
             row = [term]
             for doc in docs:
                 row.append(all_freqs[doc].get(term, 0))
             data.append(row)
 
         df = pd.DataFrame(data, columns=['Term'] + doc_names)
+        df.to_csv(f"{output_dir}/global_wide_matrix.csv", index=False)
+        print("📊 Tabla Global Ancha creada")
 
-        # Guardar archivos
-        df.to_csv(f"{output_dir}/term_document_matrix.csv", index=False)
+    def create_global_long_table(self, all_freqs, doc_id_map, output_dir):
+        """Ordenada por término"""
+        data = []
+        all_terms = sorted(set(term for freq in all_freqs.values() for term in freq.keys()))
 
-        try:
-            df.to_excel(f"{output_dir}/term_document_matrix.xlsx", index=False)
-            print("📊 Archivo EXCEL creado: term_document_matrix.xlsx")
-        except Exception as e:
-            print("⚠️ No se pudo crear Excel (pero sí el CSV)")
+        for term in all_terms:
+            for filename in sorted(all_freqs.keys()):
+                count = all_freqs[filename].get(term, 0)
+                if count > 0:
+                    data.append({
+                        'term': term,
+                        'doc_id': doc_id_map[filename],
+                        'frequency': count
+                    })
 
-        print(f"📋 Tabla completa creada con {len(terms)} términos y {len(docs)} documentos")
+        df = pd.DataFrame(data)
+        df.to_csv(f"{output_dir}/global_long_table.csv", index=False)
+        print("📊 Tabla Global Larga ordenada por término creada")
+
+    def create_per_document_full_tables(self, all_freqs, output_dir):
+        """Cada documento con TODOS los términos"""
+        all_terms = sorted(set(term for freq in all_freqs.values() for term in freq.keys()))
+
+        for filename, freq in all_freqs.items():
+            data = []
+            for term in all_terms:
+                count = freq.get(term, 0)
+                data.append({
+                    'term': term,
+                    'frequency': count,
+                    'present': 1 if count > 0 else 0
+                })
+
+            df = pd.DataFrame(data)
+            safe_name = filename.replace('.txt', '')[:30]
+            df.to_csv(f"{output_dir}/per_doc_{safe_name}.csv", index=False)
+            print(f"   📋 Tabla completa para: {safe_name}")
 
     def generate_luhn_graphs(self, all_freqs, output_dir):
+        import matplotlib.pyplot as plt
         for filename, freq in all_freqs.items():
-            if len(freq) < 5:
-                continue
+            if len(freq) < 5: continue
             sorted_freq = sorted(freq.values(), reverse=True)
-
             plt.figure(figsize=(12, 7))
             plt.plot(range(1, len(sorted_freq) + 1), sorted_freq, 'b-', linewidth=2.5)
             plt.title(f'Luhn Curve - {filename.replace(".txt", "")}')
@@ -76,13 +106,11 @@ class FrequencyAnalyzer:
             plt.axvline(x=20, color='green', linestyle='--', label='Upper bound')
             plt.axvline(x=len(sorted_freq) // 2, color='red', linestyle='--', label='Lower bound')
             plt.legend()
-
-            safe_name = filename.replace('.txt', '')
-            plt.savefig(f"{output_dir}/{safe_name}_luhn.png", dpi=300, bbox_inches='tight')
+            safe = filename.replace('.txt', '')
+            plt.savefig(f"{output_dir}/{safe}_luhn.png", dpi=300, bbox_inches='tight')
             plt.close()
-            print(f"   📈 Gráfica: {safe_name}_luhn.png")
 
 
 if __name__ == "__main__":
     analyzer = FrequencyAnalyzer()
-    analyzer.analyze_all_documents()
+    analyzer.run()
