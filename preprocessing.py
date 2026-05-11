@@ -1,82 +1,81 @@
 import re
 import string
+import os
+
 
 class TextPreprocessor:
-    def __init__(self, stopwords=None, suffixes=None):
-        # Default stop list
-        self.stop_list = stopwords or {
-            "a", "an", "the", "and", "or", "but", "is", "are", "was", "were", 
-            "to", "of", "in", "on", "at", "by", "for", "with", "about", "against", 
-            "between", "into", "through", "during", "before", "after", "above", 
-            "below", "from", "up", "down", "out", "off", "over", "under", "again", 
-            "further", "then", "once", "here", "there", "when", "where", "why", 
-            "how", "all", "any", "both", "each", "few", "more", "most", "other", 
-            "some", "such", "no", "nor", "not", "only", "own", "same", "so", 
-            "than", "too", "very", "s", "t", "can", "will", "just", "don", 
-            "should", "now", "i", "me", "my", "myself", "we", "our", "ours", 
-            "ourselves", "you", "your", "yours", "yourself", "yourselves", "he", 
-            "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", 
-            "itself", "they", "them", "their", "theirs", "themselves", "what", 
-            "which", "who", "whom", "this", "that", "these", "those", "am"
-        }
-        
-        # Default suffix list for a simple stemmer
-        # (Simplified Porter Stemmer-like rules)
-        self.suffix_list = suffixes or [
-            ("ies", "y"),
-            ("ing", ""),
-            ("ed", ""),
-            ("s", ""),
-            ("ly", ""),
-            ("ment", ""),
-            ("ness", ""),
-            ("able", ""),
-            ("ible", ""),
-            ("tion", "t"),
-            ("sion", "s"),
-            ("al", ""),
-            ("ive", ""),
-            ("ize", ""),
-        ]
+    def __init__(self, resources_path="resources"):
+        self.resources_path = resources_path
+        self.stop_list = self.load_stopwords()
+        self.suffix_list = self.load_suffixes()
+
+    def clean_rtf_content(self, content):
+        content = re.sub(r'\\[^ \n\t]+', ' ', content)
+        content = re.sub(r'\{[^}]+\}', ' ', content)
+        content = re.sub(r'[\{\}\\\*\t]', ' ', content)
+        content = re.sub(r'\s+', ' ', content)
+        return content.strip()
+
+    def load_stopwords(self):
+        stopwords = set()
+        try:
+            path = os.path.join(self.resources_path, "stopwords.txt")
+            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = self.clean_rtf_content(f.read())
+            for word in content.split():
+                word = word.strip().lower()
+                if word and len(word) > 1 and word.isalpha():
+                    stopwords.add(word)
+        except:
+            pass
+
+        if len(stopwords) < 50:
+            stopwords = {"a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are",
+                         "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but",
+                         "by", "could", "did", "do", "does", "doing", "down", "during", "each", "few", "for", "from",
+                         "further", "had", "has", "have", "having", "he", "her", "here", "hers", "herself", "him",
+                         "himself", "his", "how", "i", "if", "in", "into", "is", "it", "its", "itself", "just", "me",
+                         "more", "most", "my", "myself", "no", "nor", "not", "now", "of", "off", "on", "once", "only",
+                         "or", "other", "our", "ours", "ourselves", "out", "over", "own", "same", "she", "should", "so",
+                         "some", "such", "than", "that", "the", "their", "theirs", "them", "themselves", "then",
+                         "there", "these", "they", "this", "those", "through", "to", "too", "under", "until", "up",
+                         "very", "was", "we", "were", "what", "when", "where", "which", "while", "who", "whom", "why",
+                         "with", "you", "your", "yours", "yourself", "yourselves"}
+        return stopwords
+
+    def load_suffixes(self):
+        suffixes = [("ing", ""), ("ed", ""), ("s", ""), ("ly", ""), ("es", ""), ("ment", "")]
+        return suffixes
 
     def clean_text(self, text):
-        """Lowercase, remove punctuation and numbers."""
         text = text.lower()
-        # Remove punctuation
         text = text.translate(str.maketrans("", "", string.punctuation))
-        # Remove numbers
         text = re.sub(r'\d+', '', text)
         return text
 
     def tokenize(self, text):
-        """Split text into words."""
         return text.split()
 
     def stem(self, word):
-        """Apply suffix removal to get the word stem."""
         for suffix, replacement in self.suffix_list:
             if word.endswith(suffix) and len(word) > len(suffix) + 2:
                 return word[:-len(suffix)] + replacement
         return word
 
     def preprocess(self, text):
-        """Full pipeline: clean, tokenize, remove stopwords, stem."""
         cleaned = self.clean_text(text)
         tokens = self.tokenize(cleaned)
-        
-        # Remove stopwords and stem
-        processed_tokens = []
+        processed = []
         for token in tokens:
-            if token not in self.stop_list:
+            if token not in self.stop_list and len(token) > 2:
                 stemmed = self.stem(token)
                 if stemmed:
-                    processed_tokens.append(stemmed)
-        
-        return processed_tokens
+                    processed.append(stemmed)
+        return processed
 
-# Test the preprocessor
+
+# ====================== PRUEBA ======================
 if __name__ == "__main__":
     preprocessor = TextPreprocessor()
-    test_text = "Renewable energy sources like solar and wind are increasingly efficient and sustainable."
-    print(f"Original: {test_text}")
-    print(f"Processed: {preprocessor.preprocess(test_text)}")
+    test = "The waters are becoming increasingly polluted due to climate changes."
+    print(preprocessor.preprocess(test))
