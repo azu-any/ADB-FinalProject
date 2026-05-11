@@ -1,109 +1,116 @@
 import os
-import json
-import mysql.connector
+import pandas as pd
 from preprocessing import TextPreprocessor
+from collections import Counter
 
-class Indexer:
-    def __init__(self, db_config):
-        self.db_config = db_config
+
+class FrequencyAnalyzer:
+    def __init__(self):
         self.preprocessor = TextPreprocessor()
 
-    def get_connection(self):
-        return mysql.connector.connect(**self.db_config)
-
-    def initialize_db(self, schema_path):
-        conn = self.get_connection()
-        cursor = conn.cursor()
-        with open(schema_path, 'r') as f:
-            schema = f.read()
-            # Split schema into individual commands
-            for command in schema.split(';'):
-                if command.strip():
-                    cursor.execute(command)
-        conn.commit()
-        cursor.close()
-        conn.close()
-        print("Database initialized.")
-
-    def index_documents(self, docs_dir, metadata_file=None):
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
-        # Load metadata if provided
-        metadata = {}
-        if metadata_file and os.path.exists(metadata_file):
-            with open(metadata_file, 'r') as f:
-                metadata = json.load(f)
-
-        # 1. Clear existing data
-        cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
-        cursor.execute("TRUNCATE TABLE term_document_matrix")
-        cursor.execute("TRUNCATE TABLE terms")
-        cursor.execute("TRUNCATE TABLE documents")
-        cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+    def run(self, docs_dir="data/documents", output_dir="results"):
+        os.makedirs(output_dir, exist_ok=True)
 
         doc_files = [f for f in os.listdir(docs_dir) if f.endswith('.txt')]
-        
-        all_terms = set()
-        doc_data = []
+        all_freqs = {}
+        doc_id_map = {}
 
-        for filename in doc_files:
-            file_path = os.path.join(docs_dir, filename)
-            with open(file_path, 'r') as f:
-                content = f.read()
-                
-                # Get metadata from JSON or fallback
-                meta = metadata.get(filename, {})
-                title = meta.get('title', filename.replace('.txt', '').replace('_', ' ').capitalize())
-                author = meta.get('author', 'Unknown')
-                publish_date = meta.get('date', None)
-                
-                # Insert document with metadata
-                cursor.execute(
-                    "INSERT INTO documents (title, author, publish_date, file_path, content) VALUES (%s, %s, %s, %s, %s)", 
-                    (title, author, publish_date, filename, content)
-                )
-                doc_id = cursor.lastrowid
-                
-                tokens = self.preprocessor.preprocess(content)
-                
-                # Count frequencies
-                freq_map = {}
-                for token in tokens:
-                    freq_map[token] = freq_map.get(token, 0) + 1
-                    all_terms.add(token)
-                
-                doc_data.append((doc_id, freq_map))
+        print("🔄 Procesando documentos...\n")
+        for i, filename in enumerate(sorted(doc_files), 1):
+            with open(os.path.join(docs_dir, filename), 'r', encoding='utf-8') as f:
+                text = f.read()
+            tokens = self.preprocessor.preprocess(text)
+            all_freqs[filename] = Counter(tokens)
+            doc_id_map[filename] = i
+            print(f"✅ {filename} → {len(tokens)} tokens")
 
-        # 2. Insert terms and get IDs
-        term_to_id = {}
+        # 1. Tabla Global Ancha (como la del profesor)
+        self.create_global_wide_matrix(all_freqs, output_dir)
+
+        # 2. Tabla Global Larga ordenada por término
+        self.create_global_long_table(all_freqs, doc_id_map, output_dir)
+
+        # 3. Tablas individuales por documento con TODOS los términos
+        self.create_per_document_full_tables(all_freqs, output_dir)
+
+        # 4. Gráficas Luhn
+        self.generate_luhn_graphs(all_freqs, output_dir)
+
+        print(f"\n🎉 ¡Todo generado correctamente en carpeta 'results'!")
+
+    def create_global_wide_matrix(self, all_freqs, output_dir):
+        all_terms = sorted(set(term for freq in all_freqs.values() for term in freq.keys()))
+        docs = sorted(all_freqs.keys())
+        doc_names = [d.replace('.txt', '')[:12] for d in docs]
+
+        data = []
         for term in all_terms:
-            cursor.execute("INSERT INTO terms (term) VALUES (%s)", (term,))
-            term_to_id[term] = cursor.lastrowid
+            row = [term]
+            for doc in docs:
+                row.append(all_freqs[doc].get(term, 0))
+            data.append(row)
 
-        # 3. Insert frequencies (Frequency Matrix FrecT)
-        for doc_id, freq_map in doc_data:
-            for term, freq in freq_map.items():
-                term_id = term_to_id[term]
-                cursor.execute(
-                    "INSERT INTO term_document_matrix (term_id, doc_id, frequency) VALUES (%s, %s, %s)",
-                    (term_id, doc_id, freq)
-                )
+        df = pd.DataFrame(data, columns=['Term'] + doc_names)
+        df.to_csv(f"{output_dir}/global_wide_matrix.csv", index=False)
+        print("📊 Tabla Global Ancha creada")
 
-        conn.commit()
-        cursor.close()
-        conn.close()
-        print(f"Indexed {len(doc_files)} documents and {len(all_terms)} terms.")
+    def create_global_long_table(self, all_freqs, doc_id_map, output_dir):
+        """Ordenada por término"""
+        data = []
+        all_terms = sorted(set(term for freq in all_freqs.values() for term in freq.keys()))
+
+        for term in all_terms:
+            for filename in sorted(all_freqs.keys()):
+                count = all_freqs[filename].get(term, 0)
+                if count > 0:
+                    data.append({
+                        'term': term,
+                        'doc_id': doc_id_map[filename],
+                        'frequency': count
+                    })
+
+        df = pd.DataFrame(data)
+        df.to_csv(f"{output_dir}/global_long_table.csv", index=False)
+        print("📊 Tabla Global Larga ordenada por término creada")
+
+    def create_per_document_full_tables(self, all_freqs, output_dir):
+        """Cada documento con TODOS los términos"""
+        all_terms = sorted(set(term for freq in all_freqs.values() for term in freq.keys()))
+
+        for filename, freq in all_freqs.items():
+            data = []
+            for term in all_terms:
+                count = freq.get(term, 0)
+                data.append({
+                    'term': term,
+                    'frequency': count,
+                    'present': 1 if count > 0 else 0
+                })
+
+            df = pd.DataFrame(data)
+            safe_name = filename.replace('.txt', '')[:30]
+            df.to_csv(f"{output_dir}/per_doc_{safe_name}.csv", index=False)
+            print(f"   📋 Tabla completa para: {safe_name}")
+
+    def generate_luhn_graphs(self, all_freqs, output_dir):
+        import matplotlib.pyplot as plt
+        for filename, freq in all_freqs.items():
+            if len(freq) < 5: continue
+            sorted_freq = sorted(freq.values(), reverse=True)
+            plt.figure(figsize=(12, 7))
+            plt.plot(range(1, len(sorted_freq) + 1), sorted_freq, 'b-', linewidth=2.5)
+            plt.title(f'Luhn Curve - {filename.replace(".txt", "")}')
+            plt.xlabel('Ordered terms rank (R)')
+            plt.ylabel('Term frequency (F)')
+            plt.grid(True, alpha=0.3)
+            plt.axvline(x=20, color='green', linestyle='--', label='Upper bound')
+            plt.axvline(x=len(sorted_freq) // 2, color='red', linestyle='--', label='Lower bound')
+            plt.legend()
+            safe = filename.replace('.txt', '')
+            plt.savefig(f"{output_dir}/{safe}_luhn.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
 
 if __name__ == "__main__":
-    # Example usage (adjust credentials)
-    db_config = {
-        "host": "localhost",
-        "user": "root",
-        "password": "", # Add password if needed
-        "database": "lsi_project"
-    }
-    
-    indexer = Indexer(db_config)
-    # indexer.initialize_db('schema.sql')
-    # indexer.index_documents('data/documents')
+    analyzer = FrequencyAnalyzer()
+    analyzer.run()
