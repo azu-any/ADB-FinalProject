@@ -1,0 +1,12 @@
+pandas
+numpy
+scipy
+nltk
+python-dotenv
+psycopg2-binary
+mysql-connector-python
+matplotlib
+flask
+requests
+beautifulsoup4
+gunicorn

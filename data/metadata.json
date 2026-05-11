@@ -11,13 +11,13 @@
         "date": "2024-09-24",
         "url": "data/documents/iyiola-2024.txt"
     },
-    "gelfan-2023": {
+    "gelfan-2023.txt": {
         "title": "Climate Change and Threats to Water Security: A Review.",
         "author": "A. N. Gelfan",
         "date": "2023-03-08",
         "url": "data/documents/gelfan-2023.txt"
     },
-    "netflix-2020": {
+    "netflix-2020.txt": {
         "title": "Explained | World's Water Crisis | FULL EPISODE | Netflix",
         "author": "Netflix, Vox Media Studios, Vox",
         "date": "2020-04-17",
@@ -30,12 +30,12 @@
         "url": "data/documents/un-water-climate-change.txt"
     },
     "unicef-water-climate.txt": {
-    "title": "Impact of Climate Change on Water Availability and Quality",
-    "author": "UNICEF",
-    "date": "2025-05-10",
-    "url": "data/documents/unicef-water-climate.txt"
+        "title": "Impact of Climate Change on Water Availability and Quality",
+        "author": "UNICEF",
+        "date": "2025-05-10",
+        "url": "data/documents/unicef-water-climate.txt"
     },
-    "saberifar-2022": {
+    "saberifar.txt": {
         "title": "Climate Change and Water Crisis (Case Study, Mashhad in Northeastern Iran)",
         "author": "Rostam Saberifar",
         "date": "2022-07-08",
@@ -52,13 +52,11 @@
         "author": "Ruth Larbey, Emma Weitkamp",
         "date": "2020-09-16",
         "url": "data/documents/larbey-2020.txt"
-    }, 
+    },
     "perezblanco-2020.txt": {
         "title": "Irrigation Technology and Water Conservation: A Review of the Theory and Evidence",
         "author": "C. Dionisio Pérez-Blanco, Arthur Hrast-Essenfelder, Chris Perry",
         "date": "2020",
         "url": "data/documents/perezblanco-2020.txt"
     }
-
-    
 }

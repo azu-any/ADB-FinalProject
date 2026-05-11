@@ -1,15 +1,30 @@
 import os
 import pandas as pd
+import psycopg2
+import json
 from preprocessing import TextPreprocessor
 from collections import Counter
 
 
 class FrequencyAnalyzer:
-    def __init__(self):
+    def __init__(self, db_config=None):
+        self.db_config = db_config
         self.preprocessor = TextPreprocessor()
 
-    def run(self, docs_dir="data/documents", output_dir="results"):
+    def get_connection(self):
+        if not self.db_config:
+            return None
+        return psycopg2.connect(**self.db_config)
+
+    def run(self, docs_dir="data/documents", output_dir="results", metadata_path=None):
         os.makedirs(output_dir, exist_ok=True)
+        
+        # Load metadata if provided
+        metadata = {}
+        if metadata_path and os.path.exists(metadata_path):
+            with open(metadata_path, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+            print(f"✅ Metadata loaded from {metadata_path}")
 
         doc_files = [f for f in os.listdir(docs_dir) if f.endswith('.txt')]
         all_freqs = {}
@@ -36,7 +51,84 @@ class FrequencyAnalyzer:
         # 4. Gráficas Luhn
         self.generate_luhn_graphs(all_freqs, output_dir)
 
-        print(f"\n🎉 ¡Todo generado correctamente en carpeta 'results'!")
+        # 5. Guardar en Base de Datos (para LSI)
+        if self.db_config:
+            self.save_to_db(all_freqs, doc_id_map, docs_dir, metadata)
+
+        print(f"\n🎉 ¡Todo generado correctamente!")
+
+    def save_to_db(self, all_freqs, doc_id_map, docs_dir, metadata):
+        conn = self.get_connection()
+        if not conn: return
+        cursor = conn.cursor()
+        
+        print("\n🗄️ Indexando en base de datos...")
+        try:
+            # Limpiar datos previos
+            cursor.execute("TRUNCATE TABLE term_document_matrix, lsi_vectors, terms, documents, document CASCADE")
+            
+            # Insertar documentos
+            for filename, doc_id in doc_id_map.items():
+                with open(os.path.join(docs_dir, filename), 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                # Default values from filename
+                title = filename.replace('.txt', '').replace('_', ' ').capitalize()
+                author = filename.split('-')[0].capitalize() if '-' in filename else "Unknown"
+                publish_date = None
+                
+                # Override with metadata if available
+                # Check both exact filename and filename without extension
+                meta_key = filename
+                if meta_key not in metadata and meta_key.endswith('.txt'):
+                    meta_key = meta_key[:-4]
+                
+                if filename in metadata or meta_key in metadata:
+                    file_meta = metadata.get(filename, metadata.get(meta_key))
+                    title = file_meta.get('title', title)
+                    author = file_meta.get('author', author)
+                    publish_date = file_meta.get('date', publish_date)
+                    
+                    # Ensure publish_date is in valid format for PostgreSQL (YYYY-MM-DD)
+                    # If it's just a year "2020", convert to "2020-01-01"
+                    if publish_date and len(str(publish_date)) == 4 and str(publish_date).isdigit():
+                        publish_date = f"{publish_date}-01-01"
+                    elif not publish_date:
+                        publish_date = None
+
+                # Insertar en documentos (plural) para la lógica
+                cursor.execute(
+                    "INSERT INTO documents (id, title, author, publish_date, file_path, content) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (doc_id, title, author, publish_date, filename, content)
+                )
+                # Insertar en document (singular) para satisfacer FK de lsi_vectors
+                cursor.execute("INSERT INTO document (id) VALUES (%s)", (doc_id,))
+            
+            # Insertar términos y matriz
+            all_terms = sorted(set(term for freq in all_freqs.values() for term in freq.keys()))
+            term_to_id = {}
+            for term in all_terms:
+                cursor.execute("INSERT INTO terms (term) VALUES (%s) RETURNING id", (term,))
+                term_to_id[term] = cursor.fetchone()[0]
+                
+            print("   📤 Subiendo matriz de frecuencias...")
+            matrix_data = []
+            for filename, freq in all_freqs.items():
+                doc_id = doc_id_map[filename]
+                for term, count in freq.items():
+                    matrix_data.append((term_to_id[term], doc_id, count))
+            
+            from psycopg2.extras import execute_values
+            execute_values(cursor, "INSERT INTO term_document_matrix (term_id, doc_id, frequency) VALUES %s", matrix_data)
+            
+            conn.commit()
+            print("✅ Base de datos actualizada")
+        except Exception as e:
+            print(f"❌ Error DB: {e}")
+            conn.rollback()
+        finally:
+            cursor.close()
+            conn.close()
 
     def create_global_wide_matrix(self, all_freqs, output_dir):
         all_terms = sorted(set(term for freq in all_freqs.values() for term in freq.keys()))

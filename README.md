@@ -40,9 +40,28 @@ This project implements a **Latent Semantic Indexing (LSI)** system to represent
    }
    ```
 
-2. **Installation**:
+2. **Virtual Environment Setup & Installation**:
+   It is recommended to use a virtual environment to manage project dependencies.
+   
+   **Create the virtual environment:**
    ```bash
-   pip install mysql-connector-python numpy scipy pandas
+   python -m venv venv
+   ```
+
+   **Activate the virtual environment:**
+   - On macOS/Linux:
+     ```bash
+     source venv/bin/activate
+     ```
+   - On Windows:
+     ```bash
+     venv\Scripts\activate
+     ```
+
+   **Install dependencies:**
+   Once activated, install the required packages:
+   ```bash
+   pip install -r requirements.txt
    ```
 
 3. **Run**:

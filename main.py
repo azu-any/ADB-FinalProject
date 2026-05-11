@@ -1,6 +1,6 @@
 import os
 from config import DB_CONFIG
-from indexer import Indexer
+from indexer import FrequencyAnalyzer
 from lsi_engine import LSIEngine
 from query_engine import QueryEngine
 import psycopg2
@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 def run_demo():
     print("--- LSI Document Base System Demo ---")
     
-    # 1. Initialize Indexer and DB
-    indexer = Indexer(DB_CONFIG)
+    # 1. Initialize Indexer
+    indexer = FrequencyAnalyzer(DB_CONFIG)
 
     load_dotenv()
 
@@ -28,10 +28,16 @@ def run_demo():
 
         cursor.close()
         connection.close()
+        
+        # Run frequency analysis and generate graphs using metadata
+        indexer.run(
+            docs_dir="data/documents", 
+            metadata_path="data/metadata.json"
+        )
 
     except Exception as e:
         print(f"Error: {e}")
-        print("Please ensure MySQL is running and DB_CONFIG is correct.")
+        print("Please ensure the database is accessible and DB_CONFIG is correct.")
         return
 
     # 2. Perform LSI
@@ -88,8 +94,8 @@ def run_demo():
         if isinstance(results, str):
             print(results)
         else:
-            for doc_id, title, score in results:
-                print(f" - [{score:.4f}] {title} (ID: {doc_id})")
+            for doc_id, title, author, score in results:
+                print(f" - [{score:.4f}] {title} by {author} (ID: {doc_id})")
 
 if __name__ == "__main__":
     run_demo()

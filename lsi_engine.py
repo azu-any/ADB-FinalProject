@@ -1,4 +1,4 @@
-import mysql.connector
+import psycopg2
 import numpy as np
 import pandas as pd
 from scipy.linalg import svd
@@ -9,7 +9,7 @@ class LSIEngine:
         self.db_config = db_config
 
     def get_connection(self):
-        return mysql.connector.connect(**self.db_config)
+        return psycopg2.connect(**self.db_config)
 
     def load_frequency_matrix(self):
         conn = self.get_connection()
@@ -68,8 +68,8 @@ class LSIEngine:
         # Save reduction matrices (U_k and S_k_inv) to a new table or file
         # For simplicity, let's create a table 'svd_model'
         cursor.execute("CREATE TABLE IF NOT EXISTS svd_model (name VARCHAR(50) PRIMARY KEY, data JSON)")
-        cursor.execute("REPLACE INTO svd_model (name, data) VALUES (%s, %s)", ('Uk', json.dumps(Uk.tolist())))
-        cursor.execute("REPLACE INTO svd_model (name, data) VALUES (%s, %s)", ('Sk', json.dumps(Sk.tolist())))
+        cursor.execute("INSERT INTO svd_model (name, data) VALUES (%s, %s) ON CONFLICT (name) DO UPDATE SET data = EXCLUDED.data", ('Uk', json.dumps(Uk.tolist())))
+        cursor.execute("INSERT INTO svd_model (name, data) VALUES (%s, %s) ON CONFLICT (name) DO UPDATE SET data = EXCLUDED.data", ('Sk', json.dumps(Sk.tolist())))
         
         conn.commit()
         cursor.close()
