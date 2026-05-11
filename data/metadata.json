@@ -46,5 +46,19 @@
         "author": "Xuanxuan Wang, Yaning Chen, Gonghuan Fang, Zhi Li, Yongchang Liu",
         "date": "2022-10-03",
         "url": "data/documents/wang-2022.txt"
+    },
+    "larbey-2020.txt": {
+        "title": "Water Scarcity Communication in the UK: Learning From Water Company Communications Following the 2018 Heatwave",
+        "author": "Ruth Larbey, Emma Weitkamp",
+        "date": "2020-09-16",
+        "url": "data/documents/larbey-2020.txt"
+    }, 
+    "perezblanco-2020.txt": {
+        "title": "Irrigation Technology and Water Conservation: A Review of the Theory and Evidence",
+        "author": "C. Dionisio Pérez-Blanco, Arthur Hrast-Essenfelder, Chris Perry",
+        "date": "2020",
+        "url": "data/documents/perezblanco-2020.txt"
     }
+
+    
 }
