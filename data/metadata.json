@@ -55,8 +55,20 @@
     },
     "perezblanco-2020.txt": {
         "title": "Irrigation Technology and Water Conservation: A Review of the Theory and Evidence",
-        "author": "C. Dionisio Pérez-Blanco, Arthur Hrast-Essenfelder, Chris Perry",
+        "author": "C. Dionisio P\u00e9rez-Blanco, Arthur Hrast-Essenfelder, Chris Perry",
         "date": "2020",
         "url": "data/documents/perezblanco-2020.txt"
+    },
+    "corpus_christi_faces_a_severe__web.txt": {
+        "title": "Corpus Christi faces a severe water shortage due to prolonged drought in Texas : NPR",
+        "author": "Npr.org",
+        "date": "2026-05-11",
+        "url": "https://www.npr.org/2026/04/30/nx-s1-5746152/corpus-christi-water"
+    },
+    "renewable_energy___wikipedia_web.txt": {
+        "title": "Renewable energy - Wikipedia",
+        "author": "En.wikipedia.org",
+        "date": "2026-05-11",
+        "url": "https://en.wikipedia.org/wiki/Renewable_energy"
     }
 }

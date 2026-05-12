@@ -42,6 +42,7 @@
             <!-- Search Configuration -->
             <div class="config-panel">
                 <h4>Retrieval Configuration</h4>
+                <p class="help-text" style="margin-bottom: 1.5rem;">Adjust these parameters to change how the system searches the database.</p>
                 
                 <div class="control-group">
                     <label for="mode-select">Evaluation Mode</label>
@@ -49,6 +50,7 @@
                         <option value="lsi">LSI Vector Space (SVD)</option>
                         <option value="raw">Raw Frequency (TF Matching)</option>
                     </select>
+                    <p class="help-text" style="margin-top: 0.5rem; font-size: 0.75rem;"><b>LSI</b> finds related concepts. <b>Raw</b> looks for exact word matches.</p>
                 </div>
 
                 <div class="control-group">
@@ -65,6 +67,7 @@
                             <option value="manhattan">Manhattan Distance</option>
                         </optgroup>
                     </select>
+                    <p class="help-text" style="margin-top: 0.5rem; font-size: 0.75rem;">Cosine is highly recommended when using the LSI Evaluation Mode.</p>
                 </div>
 
                 <div class="control-group">
@@ -78,7 +81,7 @@
             <!-- Document Ingestion -->
             <div class="ingestion-panel">
                 <h4>Corpus Expansion</h4>
-                <p class="help-text">Extract and index a web document.</p>
+                <p class="help-text">Extract text from a web article. Note: The system will automatically re-index the database which takes roughly ~30s. Some news sites (like NPR) may take longer.</p>
                 <form id="url-form" class="url-input-group">
                     <input type="url" id="url-input" placeholder="https://example.com/article" required>
                     <button type="submit" id="url-btn">Extract & Index</button>

@@ -14,8 +14,14 @@ class WebScraper:
     def scrape_and_save(self, url):
         """Scrapes a URL, extracts text and title, saves it, and updates metadata."""
         try:
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) LSI Search Engine/1.0'}
-            response = requests.get(url, headers=headers, timeout=10)
+            # Use a more realistic User-Agent to bypass basic bot protections
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
+            # Increased timeout to 30s for slower sites like NPR
+            response = requests.get(url, headers=headers, timeout=30)
             response.raise_for_status()
 
             soup = BeautifulSoup(response.text, 'html.parser')
