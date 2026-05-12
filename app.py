@@ -100,9 +100,9 @@ def get_stats():
     try:
         conn = qe.get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM documents")
+        cursor.execute("SELECT COUNT(*) FROM text")
         docs = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM terms")
+        cursor.execute("SELECT COUNT(*) FROM term")
         terms = cursor.fetchone()[0]
         conn.close()
         

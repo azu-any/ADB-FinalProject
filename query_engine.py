@@ -29,7 +29,7 @@ class QueryEngine:
         cursor.execute("""
             SELECT v.doc_id, d.title, d.author, v.vector 
             FROM lsi_vectors v 
-            JOIN documents d ON v.doc_id = d.id
+            JOIN text d ON v.doc_id = d.id
         """)
         rows = cursor.fetchall()
         conn.close()
@@ -102,8 +102,15 @@ class QueryEngine:
         # 2. Get term mapping from DB
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, term FROM terms ORDER BY id")
-        terms = {row[1]: i for i, row in enumerate(cursor.fetchall())}
+        
+        # Insert Query Document
+        cursor.execute("INSERT INTO document DEFAULT VALUES RETURNING id")
+        query_doc_id = cursor.fetchone()[0]
+        cursor.execute("INSERT INTO query (id, label) VALUES (%s, %s)", (query_doc_id, query_text))
+        
+        model = self.get_svd_model()
+        svd_terms = model['terms'].tolist() if hasattr(model['terms'], 'tolist') else model['terms']
+        terms = {term: i for i, term in enumerate(svd_terms)}
         num_terms = len(terms)
         
         # 3. Create query vector in term space with synonym expansion
@@ -115,29 +122,40 @@ class QueryEngine:
         all_search_terms = set(tokens) # Start with original stemmed tokens
         
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
+            # Use existing connection and cursor
             for word in raw_words:
-                cursor.execute("SELECT synonym FROM Represent WHERE term = %s", (word,))
+                cursor.execute("SELECT word FROM represent WHERE term_name = %s", (word,))
                 syns = [row[0] for row in cursor.fetchall()]
                 for s in syns:
                     # Preprocess the synonym to match the index
                     p_syns = self.preprocessor.preprocess(s)
                     all_search_terms.update(p_syns)
-            conn.close()
+            # Do not close connection here, we need it below
         except Exception as e:
             print(f"⚠️ Warning fetching synonyms: {e}")
 
         for p_term in all_search_terms:
             if p_term in terms:
                 q_term_vec[terms[p_term]] += 1
+                
+        # Save query terms to HAS matrix
+        matrix_data = []
+        for p_term in all_search_terms:
+            if p_term in terms and q_term_vec[terms[p_term]] > 0:
+                matrix_data.append((query_doc_id, p_term, float(q_term_vec[terms[p_term]])))
+                
+        if matrix_data:
+            from psycopg2.extras import execute_values
+            execute_values(cursor, "INSERT INTO has (document_id, term_name, frequency) VALUES %s", matrix_data)
+        
+        conn.commit()
         
         if np.all(q_term_vec == 0):
+            conn.close()
             return "Query contains no terms found in the index."
 
         # 4. Project query into latent space
         # q_k = q^T * Uk * Sk^-1
-        model = self.get_svd_model()
         Uk = model['Uk']
         Sk = model['Sk']
         
@@ -187,11 +205,16 @@ class QueryEngine:
         # 2. Get terms index
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, term FROM terms ORDER BY id")
+        
+        # Store query
+        cursor.execute("INSERT INTO document DEFAULT VALUES RETURNING id")
+        query_doc_id = cursor.fetchone()[0]
+        cursor.execute("INSERT INTO query (id, label) VALUES (%s, %s)", (query_doc_id, query_text))
+
+        cursor.execute("SELECT name FROM term ORDER BY name")
         terms_db = cursor.fetchall()
         
-        terms = {row[1]: i for i, row in enumerate(terms_db)}
-        term_id_map = {row[1]: row[0] for row in terms_db}
+        terms = {row[0]: i for i, row in enumerate(terms_db)}
         num_terms = len(terms)
         
         # 3. Create query vector in term space with synonym expansion
@@ -202,7 +225,7 @@ class QueryEngine:
         
         try:
             for word in raw_words:
-                cursor.execute("SELECT synonym FROM Represent WHERE term = %s", (word,))
+                cursor.execute("SELECT word FROM represent WHERE term_name = %s", (word,))
                 syns = [row[0] for row in cursor.fetchall()]
                 for s in syns:
                     p_syns = self.preprocessor.preprocess(s)
@@ -213,13 +236,25 @@ class QueryEngine:
         for p_term in all_search_terms:
             if p_term in terms:
                 q_term_vec[terms[p_term]] += 1
+                
+        # Store query terms to HAS matrix
+        matrix_data = []
+        for p_term in all_search_terms:
+            if p_term in terms and q_term_vec[terms[p_term]] > 0:
+                matrix_data.append((query_doc_id, p_term, float(q_term_vec[terms[p_term]])))
+                
+        if matrix_data:
+            from psycopg2.extras import execute_values
+            execute_values(cursor, "INSERT INTO has (document_id, term_name, frequency) VALUES %s", matrix_data)
+        
+        conn.commit()
         
         if np.all(q_term_vec == 0):
             conn.close()
             return "Query contains no terms found in the index."
 
-        # 4. Fetch the entire raw term_document_matrix
-        cursor.execute("SELECT id, title, author FROM documents ORDER BY id")
+        # 4. Fetch the entire raw text corpus (not other queries)
+        cursor.execute("SELECT id, title, author FROM text ORDER BY id")
         docs_info = cursor.fetchall()
         
         results = []
@@ -235,13 +270,12 @@ class QueryEngine:
         
         for doc_id, title, author in docs_info:
             # Reconstruct document vector
-            cursor.execute("SELECT term_id, frequency FROM term_document_matrix WHERE doc_id = %s", (doc_id,))
+            cursor.execute("SELECT term_name, frequency FROM has WHERE document_id = %s", (doc_id,))
             doc_terms = cursor.fetchall()
             
             d_vec = np.zeros(num_terms)
-            for t_id, freq in doc_terms:
-                # Find index in array
-                array_idx = next(i for i, row in enumerate(terms_db) if row[0] == t_id)
+            for t_name, freq in doc_terms:
+                array_idx = terms[t_name]
                 d_vec[array_idx] = freq
                 
             score = compare_func(q_term_vec, d_vec)

@@ -4,6 +4,8 @@ import pandas as pd
 from scipy.linalg import svd
 import json
 
+from config import DB_CONFIG
+
 class LSIEngine:
     def __init__(self, db_config):
         self.db_config = db_config
@@ -14,11 +16,11 @@ class LSIEngine:
     def load_frequency_matrix(self):
         conn = self.get_connection()
         query = """
-            SELECT t.term, d.id as doc_id, COALESCE(tdm.frequency, 0) as frequency
-            FROM terms t
-            CROSS JOIN documents d
-            LEFT JOIN term_document_matrix tdm ON t.id = tdm.term_id AND d.id = tdm.doc_id
-            ORDER BY t.id, d.id
+            SELECT t.name as term, d.id as doc_id, COALESCE(h.frequency, 0) as frequency
+            FROM term t
+            CROSS JOIN text d
+            LEFT JOIN has h ON t.name = h.term_name AND d.id = h.document_id
+            ORDER BY t.name, d.id
         """
         df = pd.read_sql(query, conn)
         conn.close()
@@ -52,7 +54,7 @@ class LSIEngine:
         doc_vectors = (Sk @ Vtk).T 
         return doc_vectors, Uk, Sk
 
-    def save_lsi_vectors(self, doc_ids, doc_vectors, Uk, Sk):
+    def save_lsi_vectors(self, doc_ids, doc_vectors, Uk, Sk, terms):
         conn = self.get_connection()
         cursor = conn.cursor()
         
@@ -70,6 +72,7 @@ class LSIEngine:
         cursor.execute("CREATE TABLE IF NOT EXISTS svd_model (name VARCHAR(50) PRIMARY KEY, data JSON)")
         cursor.execute("INSERT INTO svd_model (name, data) VALUES (%s, %s) ON CONFLICT (name) DO UPDATE SET data = EXCLUDED.data", ('Uk', json.dumps(Uk.tolist())))
         cursor.execute("INSERT INTO svd_model (name, data) VALUES (%s, %s) ON CONFLICT (name) DO UPDATE SET data = EXCLUDED.data", ('Sk', json.dumps(Sk.tolist())))
+        cursor.execute("INSERT INTO svd_model (name, data) VALUES (%s, %s) ON CONFLICT (name) DO UPDATE SET data = EXCLUDED.data", ('terms', json.dumps(terms)))
         
         conn.commit()
         cursor.close()
@@ -77,12 +80,7 @@ class LSIEngine:
         print(f"Stored LSI vectors and SVD model.")
 
 if __name__ == "__main__":
-    db_config = {
-        "host": "localhost",
-        "user": "root",
-        "password": "",
-        "database": "lsi_project"
-    }
+    db_config = DB_CONFIG
     
     lsi = LSIEngine(db_config)
     matrix = lsi.load_frequency_matrix()
@@ -92,7 +90,7 @@ if __name__ == "__main__":
     print("Singular Values:", S)
     
     # Simple heuristic: keep 80% of energy or a fixed k
-    k = 3 # For 10 docs, 2-3 is usually enough for demo
+    k = 6 # Increased from 3 to 6 to capture variance of smaller documents vs Wikipedia
     doc_vectors, Uk, Sk = lsi.compute_reduced_representation(U, S, Vt, k)
     
-    lsi.save_lsi_vectors(matrix.columns, doc_vectors, Uk, Sk)
+    lsi.save_lsi_vectors(matrix.columns, doc_vectors, Uk, Sk, matrix.index.tolist())

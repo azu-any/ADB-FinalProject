@@ -65,7 +65,7 @@ class FrequencyAnalyzer:
         print("\n🗄️ Indexando en base de datos...")
         try:
             # Limpiar datos previos
-            cursor.execute("TRUNCATE TABLE term_document_matrix, lsi_vectors, terms, documents, document CASCADE")
+            cursor.execute("TRUNCATE TABLE has, lsi_vectors, term, query, text, document CASCADE")
             
             # Insertar documentos
             for filename, doc_id in doc_id_map.items():
@@ -96,30 +96,31 @@ class FrequencyAnalyzer:
                     elif not publish_date:
                         publish_date = None
 
-                # Insertar en documentos (plural) para la lógica
-                cursor.execute(
-                    "INSERT INTO documents (id, title, author, publish_date, file_path, content) VALUES (%s, %s, %s, %s, %s, %s)",
-                    (doc_id, title, author, publish_date, filename, content)
-                )
-                # Insertar en document (singular) para satisfacer FK de lsi_vectors
+                # Insertar en document (Superclase)
                 cursor.execute("INSERT INTO document (id) VALUES (%s)", (doc_id,))
-            
-            # Insertar términos y matriz
-            all_terms = sorted(set(term for freq in all_freqs.values() for term in freq.keys()))
-            term_to_id = {}
-            for term in all_terms:
-                cursor.execute("INSERT INTO terms (term) VALUES (%s) RETURNING id", (term,))
-                term_to_id[term] = cursor.fetchone()[0]
                 
-            print("   📤 Subiendo matriz de frecuencias...")
+                # Insertar en text (Subclase)
+                cursor.execute(
+                    "INSERT INTO text (id, url, title, author, date, content) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (doc_id, filename, title, author, publish_date, content)
+                )
+            
+            # Insertar términos
+            all_terms = sorted(set(term for freq in all_freqs.values() for term in freq.keys()))
+            from psycopg2.extras import execute_values
+            
+            print("   📤 Insertando términos...")
+            term_data = [(t,) for t in all_terms]
+            execute_values(cursor, "INSERT INTO term (name) VALUES %s ON CONFLICT DO NOTHING", term_data)
+                
+            print("   📤 Subiendo matriz de frecuencias (HAS)...")
             matrix_data = []
             for filename, freq in all_freqs.items():
                 doc_id = doc_id_map[filename]
                 for term, count in freq.items():
-                    matrix_data.append((term_to_id[term], doc_id, count))
+                    matrix_data.append((doc_id, term, count))
             
-            from psycopg2.extras import execute_values
-            execute_values(cursor, "INSERT INTO term_document_matrix (term_id, doc_id, frequency) VALUES %s", matrix_data)
+            execute_values(cursor, "INSERT INTO has (document_id, term_name, frequency) VALUES %s", matrix_data)
             
             conn.commit()
             print("✅ Base de datos actualizada")
